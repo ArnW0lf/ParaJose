@@ -5,7 +5,7 @@ import PublicationCard from './components/PublicationCard';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 // API_BASE_URL = 'http://127.0.0.1:8000/api';
-const API_BASE_URL = 'https://AQUI-TU-URL-DE-RENDER.onrender.com/api';
+const API_BASE_URL = 'https://backendsito.onrender.com/api';
 
 function App() {
     // Estado para las adaptaciones actuales (lo que acabas de generar)
