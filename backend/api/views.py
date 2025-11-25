@@ -2,11 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
 from django.utils import timezone
+from django.shortcuts import redirect
 
 # Importamos tus modelos y servicios
 from .models import Post, Publication
 from .llm_service import adaptar_contenido_con_gemini
-from .social_service import publicar_en_facebook, publicar_en_linkedin, publicar_en_whatsapp, publicar_en_instagram
+from .social_service import publicar_en_facebook, publicar_en_linkedin, publicar_en_whatsapp, publicar_en_instagram, get_tiktok_auth_url, get_tiktok_access_token
 from .serializers import PostSerializer
 from .notification_service import notify_success, notify_error, notify_manual_action
 
@@ -97,7 +98,7 @@ class PublicarContenidoView(APIView):
             resultado = publicar_en_linkedin(pub.contenido_adaptado)
             
         elif pub.plataforma == 'tiktok':
-            resultado = {"status": "manual_action_required", "message": "Copiar manualmente."}
+            resultado = {"status": "manual_action_required", "message": "Copiar manualmente (OAuth en proceso)."}
 
         # --- ACTUALIZAR BD Y NOTIFICAR ---
         if resultado.get('status') == 'success':
@@ -168,3 +169,50 @@ class DetallePostView(generics.RetrieveAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     lookup_field = 'id'
+
+# --- TIKTOK AUTH ---
+
+class TikTokAuthView(APIView):
+    def get(self, request):
+        # Ahora get_tiktok_auth_url devuelve (url, code_verifier)
+        auth_url, code_verifier = get_tiktok_auth_url()
+        
+        if auth_url and code_verifier:
+            # Guardar el code_verifier en la sesión para usarlo en el callback
+            request.session['tiktok_code_verifier'] = code_verifier
+            return redirect(auth_url)
+            
+        return Response({"error": "No se pudo generar la URL de autenticación. Revisa las credenciales."}, status=500)
+
+class TikTokCallbackView(APIView):
+    def get(self, request):
+        code = request.GET.get('code')
+        error = request.GET.get('error')
+        
+        if error:
+             return Response({"error": f"TikTok Error: {error}"}, status=400)
+
+        if not code:
+            return Response({"error": "No se recibió el código de autorización"}, status=400)
+            
+        # Recuperar el code_verifier de la sesión
+        code_verifier = request.session.get('tiktok_code_verifier')
+        
+        if not code_verifier:
+            return Response({"error": "Falta el code_verifier en la sesión. Reinicia el flujo de autenticación."}, status=400)
+            
+        # Intercambiar código por token usando el verifier
+        token_data = get_tiktok_access_token(code, code_verifier)
+        
+        if "error" in token_data:
+            return Response(token_data, status=400)
+            
+        # Limpiar el verifier de la sesión
+        if 'tiktok_code_verifier' in request.session:
+            del request.session['tiktok_code_verifier']
+
+        # TODO: Guardar el token en la base de datos
+        return Response({
+            "message": "Autenticación exitosa",
+            "token_data": token_data
+        })

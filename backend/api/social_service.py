@@ -211,3 +211,94 @@ def publicar_en_whatsapp(texto, numero_destino):
             return {"platform": "whatsapp", "status": "error", "message": response_data}
     except Exception as e:
         return {"platform": "whatsapp", "status": "error", "message": str(e)}
+
+# --- TIKTOK ---
+import hashlib
+import base64
+import secrets
+import string
+import urllib.parse
+
+def generate_pkce_pair():
+    """
+    Genera un par (code_verifier, code_challenge) para PKCE.
+    """
+    # 1. Generar code_verifier (cadena aleatoria)
+    alphabet = string.ascii_letters + string.digits + "-._~"
+    code_verifier = ''.join(secrets.choice(alphabet) for _ in range(128))
+
+    # 2. Generar code_challenge (SHA-256 hash del verifier, codificado en URL-safe Base64)
+    code_challenge_hash = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    code_challenge = base64.urlsafe_b64encode(code_challenge_hash).decode('utf-8').rstrip('=')
+
+    return code_verifier, code_challenge
+
+def get_tiktok_auth_url():
+    """
+    Genera la URL de autorización para TikTok usando PKCE.
+    Retorna: (url, code_verifier)
+    """
+    client_key = os.getenv('TIKTOK_CLIENT_KEY')
+    redirect_uri = os.getenv('TIKTOK_REDIRECT_URI')
+    
+    print(f"DEBUG: TIKTOK_CLIENT_KEY loaded: {client_key}") # Debug log
+    print(f"DEBUG: TIKTOK_REDIRECT_URI loaded: {redirect_uri}") # Debug log
+
+    if not client_key or not redirect_uri:
+        return None, None
+        
+    # CSRF state
+    state = secrets.token_urlsafe(16)
+    
+    # Generar PKCE
+    code_verifier, code_challenge = generate_pkce_pair()
+    
+    # Permisos necesarios
+    scope = "user.info.basic,video.publish,video.upload"
+    
+    # URL de autorización v2 con PKCE
+    params = {
+        'client_key': client_key,
+        'scope': scope,
+        'response_type': 'code',
+        'redirect_uri': redirect_uri,
+        'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256'
+    }
+    
+    url = f"https://www.tiktok.com/v2/auth/authorize/?{urllib.parse.urlencode(params)}"
+    return url, code_verifier
+
+def get_tiktok_access_token(code, code_verifier):
+    """
+    Intercambia el código de autorización por un Access Token usando PKCE.
+    """
+    client_key = os.getenv('TIKTOK_CLIENT_KEY')
+    client_secret = os.getenv('TIKTOK_CLIENT_SECRET')
+    redirect_uri = os.getenv('TIKTOK_REDIRECT_URI')
+    
+    url = "https://open.tiktokapis.com/v2/oauth/token/"
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    data = {
+        'client_key': client_key,
+        'client_secret': client_secret,
+        'code': code,
+        'grant_type': 'authorization_code',
+        'redirect_uri': redirect_uri,
+        'code_verifier': code_verifier  # IMPORTANTE para PKCE
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, data=data)
+        data = response.json()
+        log_api_call("tiktok_auth", url, response.status_code, data)
+        return data
+    except Exception as e:
+        return {"error": str(e)}
+
+def publicar_en_tiktok(video_url, access_token):
+    """
+    Placeholder para publicar video en TikTok (se implementará después).
+    """
+    return {"platform": "tiktok", "status": "pending", "message": "Función de publicación aún no implementada"}
