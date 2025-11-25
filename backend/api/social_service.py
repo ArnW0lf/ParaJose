@@ -253,8 +253,8 @@ def get_tiktok_auth_url():
     # Generar PKCE
     code_verifier, code_challenge = generate_pkce_pair()
     
-    # Permisos necesarios (solo básico por ahora, video.publish y video.upload requieren aprobación)
-    scope = "user.info.basic"
+    # Permisos aprobados (video.upload pendiente de aprobación)
+    scope = "user.info.basic,user.info.profile,user.info.stats,video.list"
     
     # URL de autorización v2 con PKCE
     params = {
