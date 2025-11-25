@@ -25,5 +25,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     path('tiktok-developers-site-verification', tiktok_verification),
-    path('path/', tiktok_verification), # Agregado por si TikTok está buscando en esta ruta específica
+    path('path/', tiktok_verification),
+    # Ruta específica basada en el ejemplo de tu amigo (tiktok + CODIGO + .txt)
+    path('tiktokipoDEgDctK54poMZllSuwiDbLiP4qlHo.txt', tiktok_verification),
 ]
