@@ -7,7 +7,6 @@ from .views import (
     EliminarPostView,
     TikTokAuthView,
     TikTokCallbackView,
-    TikTokCallbackView,
     TikTokTokenView,
     UploadMediaView
 )

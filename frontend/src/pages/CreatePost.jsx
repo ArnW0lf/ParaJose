@@ -43,6 +43,7 @@ const CreatePost = () => {
         }
 
         setIsLoading(true);
+        console.log('Using API URL:', API_BASE_URL); // DEBUG
         try {
             let uploadedVideoUrl = '';
 
