@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
 from django.utils import timezone
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render, get_object_or_404
 from django.http import HttpResponse
 
 # Importamos tus modelos y servicios

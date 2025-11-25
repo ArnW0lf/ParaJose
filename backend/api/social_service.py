@@ -253,8 +253,8 @@ def get_tiktok_auth_url():
     # Generar PKCE
     code_verifier, code_challenge = generate_pkce_pair()
     
-    # Revertimos a los scopes básicos que SÍ funcionan mientras resuelves lo de los permisos
-    scope = "user.info.basic,user.info.profile,user.info.stats,video.list"
+    # Intentamos SOLO con video.upload (Borradores) que dice estar habilitado por defecto
+    scope = "user.info.basic,video.upload,user.info.profile,user.info.stats"
     
     # URL de autorización v2 con PKCE
     params = {
