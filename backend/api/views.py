@@ -6,7 +6,7 @@ from django.shortcuts import redirect, render, get_object_or_404
 from django.http import HttpResponse
 
 # Importamos tus modelos y servicios
-from .models import Post, Publication
+from .models import Post, Publication, SocialCredential
 from .llm_service import adaptar_contenido_con_gemini
 from .social_service import publicar_en_facebook, publicar_en_linkedin, publicar_en_whatsapp, publicar_en_instagram, publicar_en_tiktok, get_tiktok_auth_url, get_tiktok_access_token
 from .serializers import PostSerializer
@@ -293,3 +293,14 @@ class TikTokCallbackView(APIView):
         </html>
         '''
         return HttpResponse(html)
+
+class TikTokTokenView(APIView):
+    def get(self, request):
+        cred = SocialCredential.objects.filter(plataforma='tiktok').first()
+        if cred:
+            return Response({
+                'access_token': cred.access_token,
+                'refresh_token': cred.refresh_token,
+                'expires_at': cred.expires_at
+            })
+        return Response({"error": "No token found"}, status=404)
