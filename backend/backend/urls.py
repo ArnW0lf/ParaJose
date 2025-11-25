@@ -16,8 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import HttpResponse
+
+def tiktok_verification(request):
+    return HttpResponse("tiktok-developers-site-verification=ipoDEgDctK54poMZllSuwiDbLiP4qlHo")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),  # Incluimos las URLs de la API
+    path('api/', include('api.urls')),
+    path('tiktok-developers-site-verification', tiktok_verification),
 ]
