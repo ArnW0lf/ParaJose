@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import CharacterCounter from '../components/CharacterCounter';
+import config from '../config';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE_URL = config.API_BASE_URL;
 
 const PreviewAdaptations = () => {
     const navigate = useNavigate();
     const [adaptations, setAdaptations] = useState(null);
     const [imageURL, setImageURL] = useState('');
+    const [videoURL, setVideoURL] = useState('');
     const [selectedPlatforms, setSelectedPlatforms] = useState({});
     const [editedContent, setEditedContent] = useState({});
     const [publishingStatus, setPublishingStatus] = useState({});
@@ -43,6 +45,7 @@ const PreviewAdaptations = () => {
         // Cargar datos del sessionStorage
         const storedAdaptations = sessionStorage.getItem('currentAdaptations');
         const storedImageURL = sessionStorage.getItem('imageURL');
+        const storedVideoURL = sessionStorage.getItem('videoURL');
         const storedPlatforms = sessionStorage.getItem('selectedPlatforms');
 
         if (!storedAdaptations) {
@@ -55,6 +58,7 @@ const PreviewAdaptations = () => {
 
         setAdaptations(adaptationsData);
         setImageURL(storedImageURL || '');
+        setVideoURL(storedVideoURL || '');
         setSelectedPlatforms(platforms);
 
         // Inicializar contenido editable
@@ -96,8 +100,12 @@ const PreviewAdaptations = () => {
             }
 
             if (platform === 'tiktok') {
-                setPublishingStatus(prev => ({ ...prev, [platform]: 'manual' }));
-                return;
+                if (!videoURL) {
+                    alert('TikTok requiere un video subido.');
+                    setPublishingStatus(prev => ({ ...prev, [platform]: 'error' }));
+                    return;
+                }
+                body.video_url = videoURL;
             }
 
             const response = await axios.post(`${API_BASE_URL}/publicar/`, body);
@@ -245,8 +253,7 @@ const PreviewAdaptations = () => {
                                         onClick={() => handlePublish(platform, adaptation.id)}
                                         disabled={
                                             publishingStatus[platform] === 'publishing' ||
-                                            publishingStatus[platform] === 'success' ||
-                                            (platform === 'tiktok')
+                                            publishingStatus[platform] === 'success'
                                         }
                                     >
                                         {publishingStatus[platform] === 'publishing' ? (
@@ -256,8 +263,6 @@ const PreviewAdaptations = () => {
                                             </>
                                         ) : publishingStatus[platform] === 'success' ? (
                                             '✅ Publicado'
-                                        ) : platform === 'tiktok' ? (
-                                            '📋 Copiar Manualmente'
                                         ) : (
                                             `Publicar en ${platform}`
                                         )}

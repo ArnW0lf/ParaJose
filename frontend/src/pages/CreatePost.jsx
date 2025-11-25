@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import config from '../config';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE_URL = config.API_BASE_URL;
 
 const CreatePost = () => {
     const navigate = useNavigate();
@@ -11,6 +12,8 @@ const CreatePost = () => {
         contenido: '',
         imagenURL: ''
     });
+    const [videoFile, setVideoFile] = useState(null);
+    const [uploadingVideo, setUploadingVideo] = useState(false);
     const [selectedPlatforms, setSelectedPlatforms] = useState({
         facebook: true,
         instagram: true,
@@ -25,6 +28,10 @@ const CreatePost = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleFileChange = (e) => {
+        setVideoFile(e.target.files[0]);
+    };
+
     const handlePlatformToggle = (platform) => {
         setSelectedPlatforms(prev => ({ ...prev, [platform]: !prev[platform] }));
     };
@@ -37,6 +44,22 @@ const CreatePost = () => {
 
         setIsLoading(true);
         try {
+            let uploadedVideoUrl = '';
+
+            // 1. Subir video si existe
+            if (videoFile) {
+                setUploadingVideo(true);
+                const formDataVideo = new FormData();
+                formDataVideo.append('file', videoFile);
+
+                const uploadResponse = await axios.post(`${API_BASE_URL}/upload/`, formDataVideo, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                uploadedVideoUrl = uploadResponse.data.url;
+                setUploadingVideo(false);
+            }
+
+            // 2. Generar adaptaciones
             const response = await axios.post(`${API_BASE_URL}/adaptar/`, {
                 titulo: formData.titulo,
                 contenido: formData.contenido
@@ -46,6 +69,7 @@ const CreatePost = () => {
                 // Guardar datos en sessionStorage para la página de preview
                 sessionStorage.setItem('currentAdaptations', JSON.stringify(response.data));
                 sessionStorage.setItem('imageURL', formData.imagenURL);
+                sessionStorage.setItem('videoURL', uploadedVideoUrl);
                 sessionStorage.setItem('selectedPlatforms', JSON.stringify(selectedPlatforms));
 
                 // Navegar a la página de preview
@@ -121,6 +145,20 @@ const CreatePost = () => {
                                 </small>
                             </div>
 
+                            {/* Subida de Video (TikTok) */}
+                            <div className="mb-4">
+                                <label className="form-label fw-bold">Subir Video (Para TikTok)</label>
+                                <input
+                                    type="file"
+                                    accept="video/*"
+                                    className="form-control"
+                                    onChange={handleFileChange}
+                                />
+                                <small className="text-muted">
+                                    Sube un video .mp4 para publicar en TikTok.
+                                </small>
+                            </div>
+
                             {/* Selección de Plataformas */}
                             <div className="mb-4">
                                 <label className="form-label fw-bold">Redes Destino</label>
@@ -154,7 +192,7 @@ const CreatePost = () => {
                                     {isLoading ? (
                                         <>
                                             <span className="spinner-border spinner-border-sm me-2"></span>
-                                            Generando Adaptaciones...
+                                            {uploadingVideo ? 'Subiendo Video...' : 'Generando Adaptaciones...'}
                                         </>
                                     ) : (
                                         '✨ Generar Preview'

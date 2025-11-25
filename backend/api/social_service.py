@@ -358,7 +358,7 @@ def publicar_en_tiktok(video_url, titulo="", descripcion=""):
         caption = f"{titulo}\n\n{descripcion}" if titulo and descripcion else (titulo or descripcion)
         init_payload["post_info"] = {
             "title": caption[:150],  # TikTok limita a 150 caracteres
-            "privacy_level": "PUBLIC_TO_EVERYONE",  # Publicación directa PÚBLICA
+            "privacy_level": "SELF_ONLY",  # Restricción de TikTok para Apps no auditadas: Solo Privado
             "disable_duet": False,
             "disable_comment": False,
             "disable_stitch": False,

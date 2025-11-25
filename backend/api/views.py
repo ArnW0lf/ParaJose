@@ -4,6 +4,9 @@ from rest_framework import status, generics
 from django.utils import timezone
 from django.shortcuts import redirect, render, get_object_or_404
 from django.http import HttpResponse
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import os
 
 # Importamos tus modelos y servicios
 from .models import Post, Publication, SocialCredential
@@ -70,6 +73,7 @@ class PublicarContenidoView(APIView):
     def post(self, request, *args, **kwargs):
         publication_id = request.data.get('publication_id')
         image_url = request.data.get('image_url') 
+        video_url = request.data.get('video_url')
         whatsapp_number = request.data.get('whatsapp_number')
 
         try:
@@ -99,7 +103,11 @@ class PublicarContenidoView(APIView):
             resultado = publicar_en_linkedin(pub.contenido_adaptado)
             
         elif pub.plataforma == 'tiktok':
-            resultado = publicar_en_tiktok(pub.contenido_adaptado, image_url)
+            # Usar video_url si viene en el request, sino intentar usar image_url o fallar
+            media_url = video_url or image_url
+            if not media_url:
+                 return Response({"error": "TikTok requiere video_url"}, status=400)
+            resultado = publicar_en_tiktok(media_url, pub.contenido_adaptado)
 
         # --- ACTUALIZAR BD Y NOTIFICAR ---
         if resultado.get('status') == 'success':
@@ -151,6 +159,21 @@ class EliminarPostView(APIView):
                 {"error": f"Post con ID {id} no encontrado."},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class UploadMediaView(APIView):
+    """
+    Sube un archivo (imagen o video) y devuelve su URL pública.
+    """
+    def post(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({"error": "No file provided"}, status=400)
+        
+        # Guardar archivo
+        file_name = default_storage.save(file_obj.name, ContentFile(file_obj.read()))
+        file_url = request.build_absolute_uri(default_storage.url(file_name))
+        
+        return Response({"url": file_url}, status=201)
 
 # --- VISTAS DE LECTURA (GET) ---
 
