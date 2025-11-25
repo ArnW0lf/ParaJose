@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from django.utils import timezone
 from django.shortcuts import redirect
+from django.http import HttpResponse
 
 # Importamos tus modelos y servicios
 from .models import Post, Publication
@@ -180,7 +181,20 @@ class TikTokAuthView(APIView):
         if auth_url and code_verifier:
             # Guardar el code_verifier en la sesión para usarlo en el callback
             request.session['tiktok_code_verifier'] = code_verifier
-            return redirect(auth_url)
+            
+            # DEBUG: En lugar de redirigir, mostramos el link para verificar los parámetros
+            html = f'''
+            <html>
+                <body>
+                    <h1>Debug TikTok Auth</h1>
+                    <p>Por favor verifica que estos valores coincidan con tu Portal de TikTok:</p>
+                    <p><strong>URL Generada:</strong> <a href="{auth_url}">{auth_url}</a></p>
+                    <hr>
+                    <p>Si la URL se ve bien, haz clic en el enlace de arriba.</p>
+                </body>
+            </html>
+            '''
+            return HttpResponse(html)
             
         return Response({"error": "No se pudo generar la URL de autenticación. Revisa las credenciales."}, status=500)
 
