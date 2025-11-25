@@ -15,8 +15,8 @@ django.setup()
 from api.models import SocialCredential
 
 # Datos del token (copiados de tu mensaje anterior)
-ACCESS_TOKEN = "act.FrgipU3Ue7IGjxrfrB1skTPmJOc3bfiMSlTwGt7Zv88BMKHx64v8khiMauKP!4472.va"
-REFRESH_TOKEN = "rft.shmLQxVUXaK1DTNdGPlavTQKbP7X4fKDwGctPQLRDgFBHHWy543KPsxOL013!4461.va"
+ACCESS_TOKEN = "act.UDWTwXhnoPsbOqLF6Ibd4UqS3BRXSpOAcYKCuqUJDt3vUDl4ePhQ57sTUKU6!4539.va"
+REFRESH_TOKEN = "rft.FWzWDzWX0tWOy7B4k7Y8Dn7d7rkqej1c72Jvb57y8hSjk5ysM34e0ExjSIQ2!4507.va"
 EXPIRES_IN = 86400
 
 print("💾 Guardando token en base de datos local...")

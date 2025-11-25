@@ -253,8 +253,8 @@ def get_tiktok_auth_url():
     # Generar PKCE
     code_verifier, code_challenge = generate_pkce_pair()
     
-    # Intentamos SOLO con video.upload (Borradores) que dice estar habilitado por defecto
-    scope = "user.info.basic,video.upload,user.info.profile,user.info.stats"
+    # Intentamos con video.publish para Publicación Directa
+    scope = "user.info.basic,video.publish,user.info.profile,user.info.stats"
     
     # URL de autorización v2 con PKCE
     params = {
@@ -299,8 +299,8 @@ def get_tiktok_access_token(code, code_verifier):
 
 def publicar_en_tiktok(video_url, titulo="", descripcion=""):
     """
-    Publica un video en TikTok usando la Content Posting API.
-    Requiere el scope 'video.upload'.
+    Publica un video en TikTok usando la Content Posting API (Direct Post).
+    Requiere el scope 'video.publish'.
     
     Args:
         video_url: URL del video a publicar (debe ser accesible públicamente)
@@ -323,18 +323,33 @@ def publicar_en_tiktok(video_url, titulo="", descripcion=""):
             "message": "No hay token de TikTok. Debes autenticarte primero en /api/tiktok/auth/"
         }
     
-    # Paso 1: Inicializar el upload
-    init_url = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
+    # Descargar el video primero para evitar problemas de verificación de dominio (ngrok)
+    print(f"   📥 Descargando video desde {video_url}...")
+    try:
+        video_response = requests.get(video_url)
+        if video_response.status_code != 200:
+             return {"platform": "tiktok", "status": "error", "message": "No se pudo descargar el video de la URL proporcionada."}
+        video_content = video_response.content
+        video_size = len(video_content)
+        print(f"   📦 Video descargado ({video_size} bytes).")
+    except Exception as e:
+        return {"platform": "tiktok", "status": "error", "message": f"Error descargando video: {str(e)}"}
+
+    # Paso 1: Inicializar el upload (DIRECT POST)
+    # Endpoint para publicación directa (NO inbox)
+    init_url = "https://open.tiktokapis.com/v2/post/publish/video/init/"
     headers = {
         'Authorization': f'Bearer {access_token}',
         'Content-Type': 'application/json; charset=UTF-8'
     }
     
-    # Preparar el payload de inicialización
+    # Preparar el payload de inicialización para FILE_UPLOAD
     init_payload = {
         "source_info": {
-            "source": "PULL_FROM_URL",  # Usar URL en lugar de FILE_UPLOAD
-            "video_url": video_url
+            "source": "FILE_UPLOAD",
+            "video_size": video_size,
+            "chunk_size": video_size,
+            "total_chunk_count": 1
         }
     }
     
@@ -343,7 +358,7 @@ def publicar_en_tiktok(video_url, titulo="", descripcion=""):
         caption = f"{titulo}\n\n{descripcion}" if titulo and descripcion else (titulo or descripcion)
         init_payload["post_info"] = {
             "title": caption[:150],  # TikTok limita a 150 caracteres
-            "privacy_level": "SELF_ONLY",  # Publicar como borrador para revisión
+            "privacy_level": "PUBLIC_TO_EVERYONE",  # Publicación directa PÚBLICA
             "disable_duet": False,
             "disable_comment": False,
             "disable_stitch": False,
@@ -351,20 +366,38 @@ def publicar_en_tiktok(video_url, titulo="", descripcion=""):
         }
     
     try:
-        print(f"   🎬 (TikTok) Iniciando publicación de video...")
+        print(f"   🎬 (TikTok) Inicializando carga de video...")
         response = requests.post(init_url, headers=headers, json=init_payload)
         data = response.json()
         
-        log_api_call("tiktok_publish", init_url, response.status_code, data)
+        log_api_call("tiktok_publish_init", init_url, response.status_code, data)
         
         if response.status_code == 200 and data.get('data'):
             publish_id = data['data'].get('publish_id')
+            upload_url = data['data'].get('upload_url')
             
+            # Paso 2: Subir el archivo binario
+            print(f"   ⬆️ Subiendo archivo a TikTok...")
+            upload_headers = {
+                'Content-Type': 'video/mp4',
+                'Content-Length': str(video_size),
+                'Content-Range': f'bytes 0-{video_size-1}/{video_size}'
+            }
+            
+            upload_resp = requests.put(upload_url, headers=upload_headers, data=video_content)
+            
+            if upload_resp.status_code not in [200, 201]:
+                return {
+                    "platform": "tiktok", 
+                    "status": "error", 
+                    "message": f"Error subiendo binario: {upload_resp.text}"
+                }
+
             return {
                 "platform": "tiktok",
                 "status": "success",
                 "id": publish_id,
-                "message": "Video enviado a TikTok. Revisa tu bandeja de entrada en la app para completar la publicación.",
+                "message": "Video publicado exitosamente en TikTok (Direct Post).",
                 "url": f"https://www.tiktok.com/@me/video/{publish_id}" if publish_id else None
             }
         else:
@@ -382,7 +415,7 @@ def publicar_en_tiktok(video_url, titulo="", descripcion=""):
                 return {
                     "platform": "tiktok",
                     "status": "error",
-                    "message": "Falta el permiso 'video.upload'. Solicítalo en el Portal de TikTok."
+                    "message": "Falta el permiso 'video.publish'. Solicítalo en el Portal de TikTok y re-autentícate."
                 }
             else:
                 return {
