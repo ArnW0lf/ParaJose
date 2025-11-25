@@ -19,10 +19,11 @@ from django.urls import path, include
 from django.http import HttpResponse
 
 def tiktok_verification(request):
-    return HttpResponse("tiktok-developers-site-verification=ipoDEgDctK54poMZllSuwiDbLiP4qlHo")
+    return HttpResponse("tiktok-developers-site-verification=ipoDEgDctK54poMZllSuwiDbLiP4qlHo", content_type="text/plain")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     path('tiktok-developers-site-verification', tiktok_verification),
+    path('path/', tiktok_verification), # Agregado por si TikTok está buscando en esta ruta específica
 ]
