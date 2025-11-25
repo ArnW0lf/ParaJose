@@ -27,8 +27,8 @@ urlpatterns = [
     path('tiktok-developers-site-verification', tiktok_verification),
     path('path/', tiktok_verification),
     # Ruta específica basada en el ejemplo de tu amigo (tiktok + CODIGO + .txt)
-    # Ruta específica para verificación de dominio de TikTok
-    path('tiktokEPgHRSOjUvF3sCS1mNP58Aw6OcvmsRJh.txt', lambda r: HttpResponse("tiktok-developers-site-verification=EPgHRSOjUvF3sCS1mNP58Aw6OcvmsRJh", content_type="text/plain")),
+    # Ruta específica para verificación de dominio de TikTok (Actualizada)
+    path('tiktokHzlHKQ8MwB2vvODuqFVskwrE9vqzacs6.txt', lambda r: HttpResponse("tiktok-developers-site-verification=HzlHKQ8MwB2vvODuqFVskwrE9vqzacs6", content_type="text/plain")),
 ]
 
 # Servir archivos de media en desarrollo
