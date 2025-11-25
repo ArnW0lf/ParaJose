@@ -27,5 +27,5 @@ urlpatterns = [
     path('tiktok-developers-site-verification', tiktok_verification),
     path('path/', tiktok_verification),
     # Ruta específica basada en el ejemplo de tu amigo (tiktok + CODIGO + .txt)
-    path('tiktokipoDEgDctK54poMZllSuwiDbLiP4qlHo.txt', tiktok_verification),
+    path('tiktokEvW41VLdGJ8rwmy2Z2EoY5tBsBckPlEU.txt', tiktok_verification),
 ]
