@@ -297,8 +297,103 @@ def get_tiktok_access_token(code, code_verifier):
     except Exception as e:
         return {"error": str(e)}
 
-def publicar_en_tiktok(video_url, access_token):
+def publicar_en_tiktok(video_url, titulo="", descripcion=""):
     """
-    Placeholder para publicar video en TikTok (se implementará después).
+    Publica un video en TikTok usando la Content Posting API.
+    Requiere el scope 'video.upload'.
+    
+    Args:
+        video_url: URL del video a publicar (debe ser accesible públicamente)
+        titulo: Título del video (opcional)
+        descripcion: Descripción/caption del video (opcional)
+    
+    Returns:
+        dict con status y detalles de la publicación
     """
-    return {"platform": "tiktok", "status": "pending", "message": "Función de publicación aún no implementada"}
+    from .models import SocialCredential
+    
+    try:
+        # Obtener el token guardado
+        credential = SocialCredential.objects.get(plataforma='tiktok')
+        access_token = credential.access_token
+    except SocialCredential.DoesNotExist:
+        return {
+            "platform": "tiktok",
+            "status": "error",
+            "message": "No hay token de TikTok. Debes autenticarte primero en /api/tiktok/auth/"
+        }
+    
+    # Paso 1: Inicializar el upload
+    init_url = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json; charset=UTF-8'
+    }
+    
+    # Preparar el payload de inicialización
+    init_payload = {
+        "source_info": {
+            "source": "PULL_FROM_URL",  # Usar URL en lugar de FILE_UPLOAD
+            "video_url": video_url
+        }
+    }
+    
+    # Si hay título o descripción, agregarlos
+    if titulo or descripcion:
+        caption = f"{titulo}\n\n{descripcion}" if titulo and descripcion else (titulo or descripcion)
+        init_payload["post_info"] = {
+            "title": caption[:150],  # TikTok limita a 150 caracteres
+            "privacy_level": "SELF_ONLY",  # Publicar como borrador para revisión
+            "disable_duet": False,
+            "disable_comment": False,
+            "disable_stitch": False,
+            "video_cover_timestamp_ms": 1000
+        }
+    
+    try:
+        print(f"   🎬 (TikTok) Iniciando publicación de video...")
+        response = requests.post(init_url, headers=headers, json=init_payload)
+        data = response.json()
+        
+        log_api_call("tiktok_publish", init_url, response.status_code, data)
+        
+        if response.status_code == 200 and data.get('data'):
+            publish_id = data['data'].get('publish_id')
+            
+            return {
+                "platform": "tiktok",
+                "status": "success",
+                "id": publish_id,
+                "message": "Video enviado a TikTok. Revisa tu bandeja de entrada en la app para completar la publicación.",
+                "url": f"https://www.tiktok.com/@me/video/{publish_id}" if publish_id else None
+            }
+        else:
+            error_msg = data.get('error', {}).get('message', 'Error desconocido')
+            error_code = data.get('error', {}).get('code', 'unknown')
+            
+            # Mensajes de error específicos
+            if error_code == 'access_token_invalid':
+                return {
+                    "platform": "tiktok",
+                    "status": "error",
+                    "message": "Token expirado. Vuelve a autenticarte en /api/tiktok/auth/"
+                }
+            elif error_code == 'scope_not_authorized':
+                return {
+                    "platform": "tiktok",
+                    "status": "error",
+                    "message": "Falta el permiso 'video.upload'. Solicítalo en el Portal de TikTok."
+                }
+            else:
+                return {
+                    "platform": "tiktok",
+                    "status": "error",
+                    "message": f"Error de TikTok: {error_msg} (Código: {error_code})"
+                }
+                
+    except Exception as e:
+        return {
+            "platform": "tiktok",
+            "status": "error",
+            "message": f"Excepción: {str(e)}"
+        }

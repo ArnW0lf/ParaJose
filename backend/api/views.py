@@ -8,7 +8,7 @@ from django.http import HttpResponse
 # Importamos tus modelos y servicios
 from .models import Post, Publication
 from .llm_service import adaptar_contenido_con_gemini
-from .social_service import publicar_en_facebook, publicar_en_linkedin, publicar_en_whatsapp, publicar_en_instagram, get_tiktok_auth_url, get_tiktok_access_token
+from .social_service import publicar_en_facebook, publicar_en_linkedin, publicar_en_whatsapp, publicar_en_instagram, publicar_en_tiktok, get_tiktok_auth_url, get_tiktok_access_token
 from .serializers import PostSerializer
 from .notification_service import notify_success, notify_error, notify_manual_action
 
@@ -415,7 +415,6 @@ class TikTokCallbackView(APIView):
         
         if "error" in token_data:
             return Response(token_data, status=400)
-            
         # Limpiar el verifier de la sesión
         if 'tiktok_code_verifier' in request.session:
             del request.session['tiktok_code_verifier']
@@ -441,7 +440,62 @@ class TikTokCallbackView(APIView):
                 }
             )
 
-        return Response({
-            "message": "Autenticación exitosa. Token guardado.",
-            "token_data": token_data
-        })
+        # Mostrar página de éxito amigable
+        html = f'''
+        <html>
+            <head>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    }}
+                    .container {{
+                        background: white;
+                        padding: 40px;
+                        border-radius: 10px;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                        text-align: center;
+                        max-width: 500px;
+                    }}
+                    h1 {{
+                        color: #00f2ea;
+                        margin-bottom: 20px;
+                    }}
+                    .checkmark {{
+                        font-size: 60px;
+                        color: #00f2ea;
+                        margin-bottom: 20px;
+                    }}
+                    p {{
+                        color: #666;
+                        line-height: 1.6;
+                    }}
+                    .token-info {{
+                        background: #f5f5f5;
+                        padding: 15px;
+                        border-radius: 5px;
+                        margin-top: 20px;
+                        font-size: 12px;
+                        color: #999;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="checkmark">✓</div>
+                    <h1>¡Autenticación Exitosa!</h1>
+                    <p>Tu cuenta de TikTok ha sido conectada correctamente.</p>
+                    <p>Ahora puedes cerrar esta ventana y volver a tu aplicación.</p>
+                    <div class="token-info">
+                        Token válido por {expires_in // 3600} horas
+                    </div>
+                </div>
+            </body>
+        </html>
+        '''
+        return HttpResponse(html)
