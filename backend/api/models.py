@@ -43,6 +43,11 @@ class Publication(models.Model):
     api_id = models.CharField(max_length=100, blank=True, null=True) # ID que nos devuelve Facebook/Twilio
     error_log = models.TextField(blank=True, null=True)   # Para guardar errores si falla
 
+    # Nuevos campos para tracking mejorado
+    published_url = models.URLField(blank=True, null=True)  # URL de la publicación en la red social
+    retry_count = models.IntegerField(default=0)            # Contador de reintentos
+    last_error = models.TextField(blank=True, null=True)    # Último error registrado
+
     fecha_publicacion = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):

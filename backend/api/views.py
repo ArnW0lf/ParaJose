@@ -1,13 +1,14 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, generics # <- generics es crucial para ListAPIView/RetrieveAPIView
+from rest_framework import status, generics
 from django.utils import timezone
 
 # Importamos tus modelos y servicios
 from .models import Post, Publication
 from .llm_service import adaptar_contenido_con_gemini
 from .social_service import publicar_en_facebook, publicar_en_linkedin, publicar_en_whatsapp, publicar_en_instagram
-from .serializers import PostSerializer # <- Importamos el serializador necesario para las vistas GET
+from .serializers import PostSerializer
+from .notification_service import notify_success, notify_error, notify_manual_action
 
 # --- VISTAS DE ESCRITURA/PUBLICACIÓN (POST) ---
 
@@ -74,6 +75,10 @@ class PublicarContenidoView(APIView):
         except Publication.DoesNotExist:
             return Response({"error": "Publicación no encontrada"}, status=404)
 
+        # Incrementar contador de reintentos
+        pub.retry_count += 1
+        pub.save()
+
         resultado = {}
 
         # --- SWITCH DE PLATAFORMAS ---
@@ -89,22 +94,34 @@ class PublicarContenidoView(APIView):
             resultado = publicar_en_instagram(pub.contenido_adaptado, image_url)
 
         elif pub.plataforma == 'linkedin':
-            # Ya no necesitamos pasar parámetros extra, solo el texto
             resultado = publicar_en_linkedin(pub.contenido_adaptado)
             
         elif pub.plataforma == 'tiktok':
             resultado = {"status": "manual_action_required", "message": "Copiar manualmente."}
 
-        # --- ACTUALIZAR BD ---
+        # --- ACTUALIZAR BD Y NOTIFICAR ---
         if resultado.get('status') == 'success':
             pub.estado = 'published'
             pub.api_id = str(resultado.get('id') or resultado.get('sid'))
+            pub.published_url = resultado.get('url', '')
             pub.fecha_publicacion = timezone.now()
+            pub.last_error = None
+            
+            # Notificar éxito
+            notify_success(pub.plataforma, pub.post.id, pub.api_id)
+            
         elif resultado.get('status') == 'manual_action_required':
-             pub.estado = 'manual'
+            pub.estado = 'manual'
+            notify_manual_action(pub.plataforma, pub.post.id)
+            
         else:
             pub.estado = 'failed'
-            pub.error_log = str(resultado.get('message'))
+            error_msg = str(resultado.get('message'))
+            pub.error_log = error_msg
+            pub.last_error = error_msg
+            
+            # Notificar error
+            notify_error(pub.plataforma, pub.post.id, error_msg)
 
         pub.save()
 
