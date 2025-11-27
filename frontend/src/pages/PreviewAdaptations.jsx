@@ -15,6 +15,7 @@ const PreviewAdaptations = () => {
     const [editedContent, setEditedContent] = useState({});
     const [publishingStatus, setPublishingStatus] = useState({});
     const [whatsappNumber, setWhatsappNumber] = useState('');
+    const [includeImage, setIncludeImage] = useState({}); // Nuevo estado para checkbox de imagen
 
     // Límites de caracteres por plataforma
     const characterLimits = {
@@ -56,19 +57,40 @@ const PreviewAdaptations = () => {
         const adaptationsData = JSON.parse(storedAdaptations);
         const platforms = JSON.parse(storedPlatforms || '{}');
 
+        console.log("DEBUG: Adaptations Data:", adaptationsData);
+        if (adaptationsData?.adaptaciones?.tiktok) {
+            console.log("DEBUG: TikTok Data:", adaptationsData.adaptaciones.tiktok);
+        }
+
         setAdaptations(adaptationsData);
         setImageURL(storedImageURL || '');
         setVideoURL(storedVideoURL || '');
+
+        // Si hay un video generado (Pexels/IA) en las adaptaciones, usarlo por defecto si no hay uno subido
+        if (adaptationsData?.adaptaciones?.tiktok?.generated_video_url) {
+            // Si no hay video subido (o es cadena vacía), usamos el generado
+            if (!storedVideoURL || storedVideoURL === '') {
+                console.log("Usando video generado:", adaptationsData.adaptaciones.tiktok.generated_video_url);
+                setVideoURL(adaptationsData.adaptaciones.tiktok.generated_video_url);
+            }
+        }
         setSelectedPlatforms(platforms);
 
-        // Inicializar contenido editable
+        // Inicializar contenido editable y checkboxes
         const initialContent = {};
+        const initialIncludeImage = {};
+
         Object.keys(adaptationsData.adaptaciones).forEach(platform => {
             if (platforms[platform]) {
                 initialContent[platform] = adaptationsData.adaptaciones[platform].texto;
+                // Por defecto, incluir imagen en Facebook si existe
+                if (platform === 'facebook' && adaptationsData.adaptaciones[platform].generated_image_url) {
+                    initialIncludeImage[platform] = true;
+                }
             }
         });
         setEditedContent(initialContent);
+        setIncludeImage(initialIncludeImage);
     }, [navigate]);
 
     const handleContentEdit = (platform, value) => {
@@ -76,18 +98,38 @@ const PreviewAdaptations = () => {
     };
 
     const handlePublish = async (platform, publicationId) => {
-        setPublishingStatus(prev => ({ ...prev, [platform]: 'publishing' }));
-
         try {
-            const body = { publication_id: publicationId };
+            setPublishingStatus(prev => ({ ...prev, [platform]: 'publishing' }));
 
+            const adaptation = adaptations.adaptaciones[platform];
+            const content = editedContent[platform] || adaptation.texto;
+
+            const body = {
+                platform: platform,
+                titulo: adaptations.titulo_original, // O el título que quieras
+                contenido: content,
+                publication_id: publicationId
+            };
+
+            // Lógica específica por plataforma
             if (platform === 'instagram') {
-                if (!imageURL) {
-                    alert('Instagram requiere una URL de imagen.');
-                    setPublishingStatus(prev => ({ ...prev, [platform]: 'error' }));
+                const generatedImage = adaptations.adaptaciones[platform].generated_image_url;
+                if (!generatedImage) {
+                    alert('Instagram requiere una imagen. No se encontró ninguna generada.');
+                    setPublishingStatus(prev => ({ ...prev, [platform]: 'idle' }));
                     return;
                 }
-                body.image_url = imageURL;
+                body.image_url = generatedImage;
+            }
+
+            if (platform === 'facebook') {
+                // Para Facebook, si el usuario marcó "incluir imagen", la enviamos
+                if (includeImage[platform]) {
+                    const generatedImage = adaptations.adaptaciones[platform].generated_image_url;
+                    if (generatedImage) {
+                        body.image_url = generatedImage;
+                    }
+                }
             }
 
             if (platform === 'whatsapp') {
@@ -100,26 +142,42 @@ const PreviewAdaptations = () => {
             }
 
             if (platform === 'tiktok') {
-                if (!videoURL) {
-                    alert('TikTok requiere un video subido.');
-                    setPublishingStatus(prev => ({ ...prev, [platform]: 'error' }));
+                // AHORA: Forzamos el uso del video generado (Pexels)
+                // Ya no dependemos de videoURL del estado si no es necesario, 
+                // pero idealmente videoURL ya debería tener el valor correcto.
+                // Usamos directamente el de la adaptación para asegurar.
+                const pexelsVideo = adaptations.adaptaciones.tiktok.generated_video_url;
+
+                if (!pexelsVideo) {
+                    alert('No se encontró un video de stock (Pexels) para publicar en TikTok.');
+                    setPublishingStatus(prev => ({ ...prev, [platform]: 'idle' }));
                     return;
                 }
-                body.video_url = videoURL;
+                body.video_url = pexelsVideo;
             }
 
-            const response = await axios.post(`${API_BASE_URL}/publicar/`, body);
+            const response = await fetch(`${API_BASE_URL}/publicar/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body)
+            });
 
-            if (response.data.status === 'success') {
+            const data = await response.json();
+
+            if (response.ok) {
                 setPublishingStatus(prev => ({ ...prev, [platform]: 'success' }));
-            } else if (response.data.status === 'manual_action_required') {
-                setPublishingStatus(prev => ({ ...prev, [platform]: 'manual' }));
+                alert(`Publicado exitosamente en ${platform}! ID: ${data.id}`);
             } else {
                 setPublishingStatus(prev => ({ ...prev, [platform]: 'error' }));
+                alert(`Error al publicar en ${platform}: ${data.error}`);
             }
+
         } catch (error) {
-            console.error('Error:', error);
+            console.error(`Error publicando en ${platform}:`, error);
             setPublishingStatus(prev => ({ ...prev, [platform]: 'error' }));
+            alert(`Error de red al publicar en ${platform}`);
         }
     };
 
@@ -202,6 +260,33 @@ const PreviewAdaptations = () => {
                                         platform={platform}
                                     />
 
+                                    {/* Video Player para TikTok (Pexels) */}
+                                    {platform === 'tiktok' && (
+                                        <div className="mt-3">
+                                            <label className="form-label fw-bold small">Video de Stock (Pexels):</label>
+                                            {videoURL ? (
+                                                <div className="mb-2 text-center" style={{ backgroundColor: '#000', borderRadius: '8px', padding: '5px' }}>
+                                                    <video
+                                                        key={videoURL}
+                                                        src={videoURL}
+                                                        controls
+                                                        style={{ width: '100%', maxHeight: '400px', display: 'block' }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="alert alert-warning small">
+                                                    ⚠️ No se encontró un video de stock.
+                                                </div>
+                                            )}
+                                            {/* DEBUG: Mostrar URL para verificar */}
+                                            {videoURL && <small className="d-block text-muted mb-2" style={{ fontSize: '0.7rem' }}>URL: {videoURL}</small>}
+                                            {/* Si hay video generado, mostrar aviso */}
+                                            {adaptation.generated_video_url && videoURL === adaptation.generated_video_url && (
+                                                <div className="badge bg-success mb-2">🎥 Video de Stock (Pexels)</div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Campo de número para WhatsApp */}
                                     {platform === 'whatsapp' && (
                                         <div className="mt-3">
@@ -240,10 +325,56 @@ const PreviewAdaptations = () => {
                                         </div>
                                     )}
 
+                                    {/* Info adicional para Facebook */}
+                                    {platform === 'facebook' && adaptation.generated_image_url && (
+                                        <div className="mt-3">
+                                            <div className="form-check form-switch">
+                                                <input
+                                                    className="form-check-input"
+                                                    type="checkbox"
+                                                    id={`check-image-${platform}`}
+                                                    checked={includeImage[platform] || false}
+                                                    onChange={(e) => setIncludeImage(prev => ({ ...prev, [platform]: e.target.checked }))}
+                                                />
+                                                <label className="form-check-label small fw-bold" htmlFor={`check-image-${platform}`}>
+                                                    Incluir imagen generada en la publicación
+                                                </label>
+                                            </div>
+
+                                            {includeImage[platform] && (
+                                                <div className="mt-2">
+                                                    <img
+                                                        src={adaptation.generated_image_url.startsWith('http')
+                                                            ? adaptation.generated_image_url
+                                                            : `${API_BASE_URL.replace('/api', '')}${adaptation.generated_image_url}`}
+                                                        alt="Generated by Pollinations"
+                                                        className="img-fluid rounded shadow-sm"
+                                                        style={{ maxHeight: '200px', objectFit: 'cover' }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Info adicional para Instagram */}
-                                    {platform === 'instagram' && adaptation.image_prompt && (
-                                        <div className="alert alert-info mt-3 small">
-                                            <strong>Sugerencia de imagen:</strong> {adaptation.image_prompt}
+                                    {platform === 'instagram' && (
+                                        <div className="mt-3">
+                                            {adaptation.generated_image_url ? (
+                                                <div className="mb-2">
+                                                    <label className="form-label fw-bold small">Imagen Generada (Se publicará automáticamente):</label>
+                                                    <img
+                                                        src={adaptation.generated_image_url.startsWith('http')
+                                                            ? adaptation.generated_image_url
+                                                            : `${API_BASE_URL.replace('/api', '')}${adaptation.generated_image_url}`}
+                                                        alt="Generated by Pollinations"
+                                                        className="img-fluid rounded shadow-sm"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="alert alert-danger small">
+                                                    No se generó imagen. Instagram requiere imagen.
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 

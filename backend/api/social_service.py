@@ -7,9 +7,10 @@ from .notification_service import log_api_call
 
 # --- FACEBOOK ---
 @retry_with_backoff(max_attempts=3, initial_delay=2)
-def publicar_en_facebook(texto):
+def publicar_en_facebook(texto, image_url=None):
     """
-    Publica texto en una Página de Facebook usando Graph API.
+    Publica texto o imagen con texto en una Página de Facebook usando Graph API.
+    Soporta URLs remotas y archivos locales (si la URL contiene '/media/').
     """
     page_id = os.getenv('FACEBOOK_PAGE_ID')
     token = os.getenv('FACEBOOK_ACCESS_TOKEN')
@@ -22,15 +23,63 @@ def publicar_en_facebook(texto):
         'message': texto,
         'access_token': token
     }
+    files = None
+
+    # Si hay imagen
+    if image_url:
+        # Cambiamos al endpoint de fotos
+        url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
+        
+        # Lógica para detectar si es un archivo local (generado por nosotros)
+        # Asumimos que si tiene '/media/' es local y tratamos de buscar el archivo
+        local_path = None
+        if '/media/' in image_url:
+            try:
+                # Extraer la parte relativa desde /media/
+                # Ej: http://localhost:8000/media/generated_images/img.jpg -> generated_images/img.jpg
+                relative_path = image_url.split('/media/')[-1]
+                # Construir ruta absoluta en el sistema de archivos
+                # Asumimos que 'media' está en la raíz del proyecto (donde corre manage.py)
+                possible_path = os.path.join('media', relative_path)
+                # Decodificar URL (por si tiene espacios o caracteres especiales)
+                possible_path = urllib.parse.unquote(possible_path)
+                
+                if os.path.exists(possible_path):
+                    local_path = possible_path
+            except Exception as e:
+                print(f"Error resolviendo ruta local: {e}")
+
+        if local_path:
+            # SUBIDA DE ARCHIVO BINARIO (Multipart)
+            print(f"   📂 (FB) Subiendo archivo local: {local_path}")
+            # 'source' es el campo para subir archivos en Graph API
+            files = {
+                'source': open(local_path, 'rb')
+            }
+            # Quitamos 'message' y usamos 'caption' para fotos
+            del payload['message']
+            payload['caption'] = texto
+        else:
+            # URL REMOTA (Facebook la descarga)
+            print(f"   🔗 (FB) Usando URL remota: {image_url}")
+            del payload['message']
+            payload['url'] = image_url
+            payload['caption'] = texto
 
     try:
-        response = requests.post(url, data=payload)
+        # Si hay files, requests usa multipart/form-data automáticamente
+        response = requests.post(url, data=payload, files=files)
+        
+        # Importante: Cerrar el archivo si lo abrimos
+        if files:
+            files['source'].close()
+            
         data = response.json()
         
         log_api_call("facebook", url, response.status_code, data)
         
         if response.status_code == 200:
-            post_id = data.get("id")
+            post_id = data.get("id") or data.get("post_id")
             published_url = f"https://www.facebook.com/{post_id}"
             return {
                 "platform": "facebook", 

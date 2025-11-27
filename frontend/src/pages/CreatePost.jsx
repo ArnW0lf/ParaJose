@@ -47,18 +47,8 @@ const CreatePost = () => {
         try {
             let uploadedVideoUrl = '';
 
-            // 1. Subir video si existe
-            if (videoFile) {
-                setUploadingVideo(true);
-                const formDataVideo = new FormData();
-                formDataVideo.append('file', videoFile);
-
-                const uploadResponse = await axios.post(`${API_BASE_URL}/upload/`, formDataVideo, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                uploadedVideoUrl = uploadResponse.data.url;
-                setUploadingVideo(false);
-            }
+            // 1. Subir video (DESACTIVADO - Usamos Pexels)
+            // if (videoFile) { ... }
 
             // 2. Generar adaptaciones
             const response = await axios.post(`${API_BASE_URL}/adaptar/`, {
@@ -146,19 +136,7 @@ const CreatePost = () => {
                                 </small>
                             </div>
 
-                            {/* Subida de Video (TikTok) */}
-                            <div className="mb-4">
-                                <label className="form-label fw-bold">Subir Video (Para TikTok)</label>
-                                <input
-                                    type="file"
-                                    accept="video/*"
-                                    className="form-control"
-                                    onChange={handleFileChange}
-                                />
-                                <small className="text-muted">
-                                    Sube un video .mp4 para publicar en TikTok.
-                                </small>
-                            </div>
+                            {/* Input de Video ELIMINADO - Usamos Pexels automático */}
 
                             {/* Selección de Plataformas */}
                             <div className="mb-4">

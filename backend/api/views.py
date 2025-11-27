@@ -60,11 +60,12 @@ class AdaptarContenidoView(APIView):
                 "texto": texto_adaptado,
                 "hashtags": hashtags,
                 "image_prompt": datos.get('suggested_image_prompt'),
+                "generated_image_url": datos.get('generated_image_url'),
+                "generated_video_url": datos.get('generated_video_url'),
                 "video_hook": datos.get('video_hook')
             }
 
         return Response(response_data, status=status.HTTP_201_CREATED)
-
 
 class PublicarContenidoView(APIView):
     """
@@ -75,7 +76,6 @@ class PublicarContenidoView(APIView):
         image_url = request.data.get('image_url') 
         video_url = request.data.get('video_url')
         whatsapp_number = request.data.get('whatsapp_number')
-
         try:
             pub = Publication.objects.get(id=publication_id)
         except Publication.DoesNotExist:
@@ -89,7 +89,8 @@ class PublicarContenidoView(APIView):
 
         # --- SWITCH DE PLATAFORMAS ---
         if pub.plataforma == 'facebook':
-            resultado = publicar_en_facebook(pub.contenido_adaptado)
+            # Facebook ahora soporta imagen opcional
+            resultado = publicar_en_facebook(pub.contenido_adaptado, image_url)
             
         elif pub.plataforma == 'whatsapp':
             if not whatsapp_number:
