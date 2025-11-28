@@ -11,8 +11,8 @@ from api.models import SocialCredential
 
 def import_tiktok_token():
     # Datos proporcionados por el usuario
-    access_token = "act.UDWTwXhnoPsbOqLF6Ibd4UqS3BRXSpOAcYKCuqUJDt3vUDl4ePhQ57sTUKU6!4539.va"
-    refresh_token = "rft.FWzWDzWX0tWOy7B4k7Y8Dn7d7rkqej1c72Jvb57y8hSjk5ysM34e0ExjSIQ2!4507.va"
+    access_token = ""
+    refresh_token = ""
     expires_at_str = "2025-11-27T17:15:48.758394Z"
     
     # Convertir string a datetime
