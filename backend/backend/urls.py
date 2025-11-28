@@ -16,8 +16,24 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import HttpResponse
+
+def tiktok_verification(request):
+    return HttpResponse("tiktok-developers-site-verification=EvW41VLdGJ8rwmy2Z2EoY5tBsBckPlEU", content_type="text/plain")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),  # Incluimos las URLs de la API
+    path('api/', include('api.urls')),
+    path('tiktok-developers-site-verification', tiktok_verification),
+    path('path/', tiktok_verification),
+    # Ruta específica basada en el ejemplo de tu amigo (tiktok + CODIGO + .txt)
+    # Ruta específica para verificación de dominio de TikTok (Nueva App)
+    path('tiktok5bKFy1LfPc3Xzmg91my2FQb4OLJImvpN.txt', lambda r: HttpResponse("tiktok-developers-site-verification=5bKFy1LfPc3Xzmg91my2FQb4OLJImvpN", content_type="text/plain")),
 ]
+
+# Servir archivos de media en desarrollo
+from django.conf import settings
+from django.conf.urls.static import static
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
